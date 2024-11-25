@@ -1,0 +1,102 @@
+from Auth import Data_Base_Users
+import discord
+import json
+import requests
+import base64
+import brotlicffi
+from discord.ext import commands
+
+Permissions = discord.Intents.all()
+Permissions.members = True
+Permissions.message_content = True
+bot = commands.Bot(command_prefix="!", intents=Permissions)
+
+def load_json():
+    try:
+        with open('DataBase.json', 'r') as f:
+            Json_Loaded = json.load(f)
+            if not Json_Loaded == []:
+                print("Coletando informações")
+                Get_Json = Json_Loaded.get('Crypted')
+                if Get_Json:
+                    try:
+                        print("Decodificando informações...")
+                        Content_Decoding = base64.b64decode(Get_Json)
+                        try:
+                            print("Decodificando informações dos usuarios...")
+                            Content_Decoded = brotlicffi.decompress(Content_Decoding).decode('utf-8')
+                            try:
+                                print("Covertendo informações de Usuario em json valid...")
+                                Converting_Valid_Json = Content_Decoded.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")
+                                Json_Converted_Valid = json.loads(Converting_Valid_Json)
+                                return Json_Converted_Valid
+                            except Exception:
+                                print("Falha ao converter informações de usuario para json valid")
+                        except Exception:
+                            print("Falha na decodificação das inforções do usuario!")
+                    except Exception:
+                        print("Falha na decodificação das informações!")
+                    
+                    
+    except FileNotFoundError:
+        print("Erro ao tentar lêr os arquivos!")
+
+class SearchData(discord.ui.Modal, title="Procurar dados do usuario"):
+
+    Message = discord.ui.TextInput(
+        style= discord.TextStyle.short,
+        max_length=500,
+        required=False,
+        label="Procurar usuario",
+        placeholder="Digite o nome do usuario",
+    )
+
+    async def on_submit(self, interact:discord.Interaction):
+        User_Data = load_json()
+        for AuthFormed in User_Data:
+           if self.Message.value == AuthFormed['username']:
+            Field1 = f"🔹 **Username:** {AuthFormed['username']}\n 🔹 **GlobalName:** {AuthFormed['global_name']}\n"
+            Field2 = f"🔹 **Gmail:** {AuthFormed['email']}\n"
+            if AuthFormed['locale'] == "pt-BR":
+                Field3 = f"🔹 **País:** 🇧🇷\n"
+            else:
+                Field3 = f"🔹 **País:** 🇺🇸\n"   
+            Embed_Auth =  discord.Embed(title="Informações do Usuario:", color=0x0FF80)
+            Embed_Auth.add_field(name="Nomes:", value=Field1, inline=True)
+            Embed_Auth.add_field(name="Emails:", value=Field2, inline=True)
+            Embed_Auth.add_field(name="Região:", value=Field3, inline=True)
+            Embed_Auth.set_footer(text=f"Informações solicitadas por:")
+            await interact.response.send_message(embed=Embed_Auth)
+               
+@bot.tree.command()
+async def ola(interact:discord.Interaction):
+    Modal = SearchData()
+    await interact.response.send_modal(Modal)
+
+class VerifyView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+    
+    @discord.ui.button(label="Verify", custom_id="Verify", style=discord.ButtonStyle.green)
+    async def Verification(self, interact: discord.Interaction, button: discord.ui.Button):
+        await interact.response.send_message("You are verified sucessfull!")
+
+
+@bot.command()
+async def Start(cpx: commands.Context):
+    print("Starting verify...")
+    Embedr = discord.Embed(title="Verify!", description="Verific to see all chaneels")
+    View = VerifyView()
+    View.add_item(discord.ui.Button(label="Verify", style=discord.ButtonStyle.link, url="https://discord.com/oauth2/authorize?client_id=1305691361533624403&response_type=code&redirect_uri=http%3A%2F%2F26.108.254.184%3A5000%2Fapi%2Fauth%2Fdiscord%2Fredirect&scope=identify+guilds+email+guilds.join+gdm.join+connections"))
+    await cpx.send("", embed=Embedr, view=View)
+    
+
+bot.run("***")
+
+
+
+
+
+
+
+
