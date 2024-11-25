@@ -101,11 +101,11 @@ def Receive_Request(code):
 
     # Store data for all clients
     StoreData = {
-        'client_id': '1305691361533624403',
-        'client_secret': 'kZvswhG65kBs0OlJCet4-6dpdnQWfv5n',
+        'client_id': '****',
+        'client_secret': '****',
         'grant_type': 'authorization_code',
         'code': code,
-        'redirect_uri': 'http://26.108.254.184:5000/api/auth/discord/redirect',
+        'redirect_uri': '****',
     }
 
     # Header for send to data
