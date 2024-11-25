@@ -1,0 +1,154 @@
+# Imports
+from flask import Flask, request, jsonify
+import requests
+import json
+import brotlicffi
+import base64
+
+# Services API and Apps
+app = Flask(__name__)
+
+Data_Base_Users = []
+
+def save_auth_json(data):
+    try:
+        with open('DataBase.json', 'r') as r:
+            try:
+                Data_Json = json.load(r)
+                if not Data_Json == []:
+                    Get_Json = Data_Json.get("Crypted")
+                    try:
+                        print("Decodificando codigo...")
+                        Content_Decoding = base64.b64decode(Get_Json)
+                        try:
+                            Content_Decoded = brotlicffi.decompress(Content_Decoding).decode('utf-8', errors='ignore')
+                            print("Decodificando json...")
+                            try:
+                                Json_String_Convert = Content_Decoded.replace("'",'"') \
+                                                                     .replace("None", "null") \
+                                                                     .replace("True", "true") \
+                                                                     .replace("False", "false")
+                                Json_Valid_Converted = json.loads(Json_String_Convert)
+                            except json.JSONDecodeError as pack:
+                                print(f"Erro na decodificação json: {pack}")
+                        except Exception as Crypto2:
+                            print(f"Falha ao decodificar! {Crypto2}")
+                    except Exception as ErroDecrypted:
+                        print(f"Falha ao decodificar codigo! {ErroDecrypted}")
+                    try:
+                        for DataFormed in Json_Valid_Converted:
+                            Data_Base_Users.append(DataFormed)
+                            if not DataFormed['username'] == data['username']:
+                                Data_Base_Users.append(data)
+                                try: 
+                                    with open('DataBase.json', 'w') as wr:
+                                        try:
+                                            Content_Data_Users = brotlicffi.compress(str(Data_Base_Users).encode('utf-8', errors='ignore'))
+                                            print(Data_Base_Users)
+                                            print("Codificação iniciada...")
+                                            try:
+                                                Content_Data_Users_Bs4 = base64.b64encode(Content_Data_Users).decode('utf-8', errors='ignore')
+                                                print("Informaações codficadas com sucesso!")
+                                                try:
+                                                    json.dump({'Crypted': Content_Data_Users_Bs4}, wr, indent=4)
+                                                    Data_Base_Users.clear()
+                                                    print("Informações salvas com sucesso ao banco de dados!")
+                                                except Exception:
+                                                    print("Erro ao salvar novas informações!")
+                                            except Exception as rss:
+                                                print(f"Erro ao codificar informações {rss}")
+                                        except Exception:
+                                            print("Erro ao tentar codificar informações!")
+                                        print("Novas informações foram adicionadas!")
+                                except Exception:
+                                    print("Erro ao adicionar novas informações!")
+                            else:
+                                print("Usuario existente no banco de dados!")
+                                return False
+                    except Exception:
+                            print("Erro ao achar informações dos usuarios")
+                else:
+                    print("Dados inexistentes!")
+                    return False
+            except Exception as err:
+                print("Erro ao lêr informações")
+                try:
+                    with open('DataBase.json', 'w') as info:
+                        print("Criando novas informações...")
+                        Data_Base_Users.append(data)
+                        try:
+                            Content_Encoding = brotlicffi.compress(str(Data_Base_Users).encode('utf-8'))
+                            print(f"Codificando informações... {Content_Encoding}")
+                            try:
+                                Content_Base64Encoded = base64.b64encode(Content_Encoding).decode('utf-8')
+                                print("Codificação concluida!")
+                            except Exception as FinishEncode:
+                                print(f"Falha na finalização da codificação! {FinishEncode}")
+                        except Exception as encoded:
+                            print(f"Erro ao encodar informações! {encoded}")
+                        json.dump({'Crypted': Content_Base64Encoded}, info, indent=4)
+                        print("Informações criadas!")
+                        Data_Base_Users.clear()
+                except Exception as req:
+                    print(f"Falha ao criar informações!")         
+    except FileNotFoundError:
+        print("Arquivo não encontrado!")
+
+def Receive_Request(code):
+
+    # Url to direction
+    Url = "https://discord.com/api/oauth2/token"
+
+    # Store data for all clients
+    StoreData = {
+        'client_id': '1305691361533624403',
+        'client_secret': 'kZvswhG65kBs0OlJCet4-6dpdnQWfv5n',
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': 'http://26.108.254.184:5000/api/auth/discord/redirect',
+    }
+
+    # Header for send to data
+    Headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+
+    # Requests Posts
+    response = requests.post(Url, data=StoreData, headers=Headers)
+    return response.json()
+
+def Receive_UserInfo(token):
+
+    Url = "https://discord.com/api/users/@me"
+
+    AuthData = {
+        'Authorization': f'Bearer {token}'
+    }
+
+    # Requests Get
+    response = requests.get(Url, headers=AuthData)
+    return response.json()
+
+@app.route('/api/auth/discord/redirect')
+def Server():
+    
+    # Code
+    code = request.args.get('code')
+
+    # Datas
+    token_data = Receive_Request(code)
+    token_info = token_data['access_token']
+    user_info = Receive_UserInfo(token_info)
+
+    save_auth_json(user_info)
+    return jsonify(token_data), 200
+
+# Servers
+if __name__ == "__main__":
+    app.run(host="***.***.**", port=****)
+
+
+
+
+
+
