@@ -1,0 +1,318 @@
+--> Services
+local Rep = game:GetService("ReplicatedStorage")
+local Weapons = require(Rep.Modules.Weapon)
+local MuchachoHitBox = require(script.MuchachoHitbox)
+
+--> Remotes
+local Remotes = Rep.Remotes
+local PlayerBlockSelf = Remotes.PlayerBlockSelf
+
+--> Functions ()
+
+local WeaponsTypes = {
+	
+	Melee = function (Player, Tool, WeaponData)
+		--> Store connections of the tool
+		local ToolUnequipped, ToolActivated, DelayConnection, DelayKnock local Debounce = false
+		--> If player found continue
+		if Player then
+			local Character = Player.Character
+			
+			--> Check if found character 
+			if Character then
+				
+				--> Store animations
+				local Animations = { Attacks = {}, Movments = {} }
+				for index, Anims in pairs(WeaponData.Animations) do
+					if index ~= "Movments" then 
+						Animations.Attacks[index] = Character.Humanoid:LoadAnimation(Anims)
+					end
+				end
+				for index, Anims in pairs(WeaponData.Animations.Movments) do
+					Animations.Movments[index] = Character.Humanoid:LoadAnimation(Anims)
+				end
+
+				--> Player movments
+				if not Animations.Movments.Idle.IsPlaying then
+					Animations.Movments.Idle:Play()
+				end
+				
+				--> If tool activated to attack 
+				ToolActivated = Tool.Activated:Connect(function()
+					local GetBlockSelf = Character:GetAttribute("BlockSelf")
+					local GetKnocked = Character:GetAttribute("Knocked")
+					if Debounce == true then return end if GetBlockSelf == true then return end
+					print(Player.Name .. " Attacked")
+					Debounce = true
+
+					--> Create Hitbox
+					local HitBox = MuchachoHitBox.CreateHitbox()
+					HitBox.Size = Vector3.new(5,5,5)
+					HitBox.Offset = CFrame.new(0,0,-3.5)
+					HitBox.CFrame = Character.HumanoidRootPart
+
+					--> Get and set combo
+					Character:SetAttribute("Attacking", true)
+					local GetStage = Character:GetAttribute("Combo")
+					if GetStage > 1 then
+						Character:SetAttribute("Combo", 1)
+					else
+						Character:SetAttribute("Combo", GetStage + 1)
+					end
+
+					--> Player attacking
+					Character.Humanoid.WalkSpeed = 5
+					local function Attacking ()
+						task.wait(2) Character:SetAttribute("Attacking", false)
+						Character.Humanoid.WalkSpeed = 16
+					end
+
+					--> Break the cancel attacking and add more time in attacking
+					if DelayConnection then
+						coroutine.close(DelayConnection)
+					end
+
+					DelayConnection = coroutine.create(Attacking)
+					coroutine.resume(DelayConnection)
+
+					--> Get animtion to load attack
+					for Index, AnimTracker in pairs(Animations.Attacks) do
+						local Choser = string.split(Index, "-")
+						if tonumber(Choser[2]) == GetStage then
+							Animations.Attacks[Index]:Play()
+							Animations.Attacks[Index].Stopped:Connect(function()
+								local Sucess, Err = pcall(function()
+									HitBox:Stop()
+								end)
+							end)
+						end
+					end
+
+					--> If hitbox touch in player
+					local LastTarget
+					HitBox.Touched:Connect(function(hit, hum)
+						--> If target is your character return end
+						if hum.Parent.Name == Character.Name then return end
+						local TargetChar = hum.Parent
+						local Humanoid = TargetChar:FindFirstChild("Humanoid")
+						local RootPart = TargetChar:FindFirstChild("HumanoidRootPart")	
+						--> Check if found humanoid and rootpart
+						if Humanoid and RootPart then
+							local TargetKnocked = TargetChar:GetAttribute("Knocked")
+							if GetKnocked == true then return end
+							--> Create the knocked
+							local function KnockedTarget()
+								task.wait(1)  
+								LastTarget:SetAttribute("Knocked", true)
+							end
+
+							--> If target is same a last
+							if LastTarget == TargetChar then
+								coroutine.close(DelayKnock)
+							end
+
+							--> Create new knocked to target
+							DelayKnock = coroutine.create(KnockedTarget)
+							coroutine.resume(DelayKnock)
+
+							--> Take the direction
+							local Direction = (RootPart.Position - Character.PrimaryPart.Position).Unit
+							RootPart.CFrame = CFrame.new(RootPart.Position, RootPart.Position + Vector3.new(-Direction.X,0,-Direction.Z))
+							RootPart.Velocity = Direction * 50 
+							LastTarget = TargetChar
+							Humanoid:TakeDamage(WeaponData.Damage)
+						end
+					end)
+
+					HitBox:Start()
+
+					wait(1)
+					Debounce = false				
+				end)	
+				ToolUnequipped = Tool.Unequipped:Connect(function()
+					ToolUnequipped:Disconnect() ToolActivated:Disconnect() 
+					if Animations.Movments.Idle.IsPlaying then
+						Animations.Movments.Idle:Stop()
+					end
+					print(Player.Name .. " Unequipped")	
+				end)
+			end
+		end
+	end,
+	
+	Punch = function (Player, Tool, WeaponData)	
+		--> Store connections to tool 
+		local ToolUnequipped, ToolAtivated, DelayConnection, DelayKnock local Debounce = false
+		--> If player found continue
+		if Player then
+			local Character = Player.Character
+			
+			--> Check if found character
+			if Character then
+				
+				--> Store animations
+				local Animations = { Attacks = {}, Movments = {} }
+				for index, Anims in pairs(WeaponData.Animations) do
+					if index ~= "Movments" then 
+						Animations.Attacks[index] = Character.Humanoid:LoadAnimation(Anims)
+					end
+				end
+				for index, Anims in pairs(WeaponData.Animations.Movments) do
+					Animations.Movments[index] = Character.Humanoid:LoadAnimation(Anims)
+				end
+				
+				--> Player movments 
+				if not Animations.Movments.Idle.IsPlaying then
+					Animations.Movments.Idle:Play()
+				end
+				
+				--> Receive remote to blockself
+				local BlockSelf = Animations.Movments.Block
+				PlayerBlockSelf.OnServerEvent:Connect(function(Player, Enable)
+					local GetBlockSelf = Character:GetAttribute("BlockSelf")
+					local GetAttacking = Character:GetAttribute("Attacking")
+					if Enable then
+						Character:SetAttribute("BlockSelf", true)
+						Player.Character.Humanoid.WalkSpeed = 5
+						if not BlockSelf.IsPlaying then
+							BlockSelf:Play()
+						end
+					else
+						Character:SetAttribute("BlockSelf", false)
+						Player.Character.Humanoid.WalkSpeed = 16
+						if BlockSelf.IsPlaying and GetAttacking == false then
+							BlockSelf:Stop()
+						end
+					end
+					Enable = nil
+				end)
+				
+				--> If player attack
+				ToolAtivated = Tool.Activated:Connect(function()
+					local GetBlockSelf = Character:GetAttribute("BlockSelf")
+					local GetKnocked = Character:GetAttribute("Knocked")
+					if Debounce == true then return end if GetBlockSelf == true then return end
+					print(Player.Name .. " Attacked")
+					Debounce = true
+					
+					--> Create Hitbox
+					local HitBox = MuchachoHitBox.CreateHitbox()
+					HitBox.Size = Vector3.new(5,5,5)
+					HitBox.Offset = CFrame.new(0,0,-3.5)
+					HitBox.CFrame = Character.HumanoidRootPart
+					
+					--> Get and set combo
+					Character:SetAttribute("Attacking", true)
+					local GetStage = Character:GetAttribute("Combo")
+					if GetStage > 1 then
+						Character:SetAttribute("Combo", 1)
+					else
+						Character:SetAttribute("Combo", GetStage + 1)
+					end
+					
+					--> Player attacking
+					Character.Humanoid.WalkSpeed = 5
+					local function Attacking ()
+						task.wait(2) Character:SetAttribute("Attacking", false)
+						Character.Humanoid.WalkSpeed = 16
+					end
+					
+					--> Break the cancel attacking and add more time in attacking
+					if DelayConnection then
+						coroutine.close(DelayConnection)
+					end
+					
+					DelayConnection = coroutine.create(Attacking)
+					coroutine.resume(DelayConnection)
+					
+					--> Get animtion to load attack
+					for Index, AnimTracker in pairs(Animations.Attacks) do
+						local Choser = string.split(Index, "-")
+						if tonumber(Choser[2]) == GetStage then
+							Animations.Attacks[Index]:Play()
+							Animations.Attacks[Index].Stopped:Connect(function()
+								local Sucess, Err = pcall(function()
+									HitBox:Stop()
+								end)
+							end)
+						end
+					end
+					
+					--> If hitbox touch in player
+					local LastTarget
+					HitBox.Touched:Connect(function(hit, hum)
+						--> If target is your character return end
+						if hum.Parent.Name == Character.Name then return end
+						local TargetChar = hum.Parent
+						local Humanoid = TargetChar:FindFirstChild("Humanoid")
+						local RootPart = TargetChar:FindFirstChild("HumanoidRootPart")	
+						--> Check if found humanoid and rootpart
+						if Humanoid and RootPart then
+							local TargetKnocked = TargetChar:GetAttribute("Knocked")
+							if GetKnocked == true then return end
+							--> Create the knocked
+							local function KnockedTarget()
+								task.wait(1)  
+								LastTarget:SetAttribute("Knocked", true)
+							end
+							
+							--> If target is same a last
+							if LastTarget == TargetChar then
+								coroutine.close(DelayKnock)
+							end
+							
+							--> Create new knocked to target
+							DelayKnock = coroutine.create(KnockedTarget)
+							coroutine.resume(DelayKnock)
+									
+							--> Take the direction
+							local Direction = (RootPart.Position - Character.PrimaryPart.Position).Unit
+							RootPart.CFrame = CFrame.new(RootPart.Position, RootPart.Position + Vector3.new(-Direction.X,0,-Direction.Z))
+							RootPart.Velocity = Direction * 50 
+							LastTarget = TargetChar
+							Humanoid:TakeDamage(WeaponData.Damage)
+						end
+					end)
+					
+					HitBox:Start()
+					
+					wait(1)
+					Debounce = false
+				end)
+				--> If player unequip close all connections
+				ToolUnequipped = Tool.Unequipped:Connect(function()
+					ToolUnequipped:Disconnect() ToolAtivated:Disconnect()  
+					if Animations.Movments.Idle.IsPlaying then
+						Animations.Movments.Idle:Stop()
+					end
+					print(Player.Name .. " Unequipped")
+				end)
+			end
+		end
+	end,
+	
+}
+
+--> Get palyeradded and characteradded
+game.Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		--> SetAttributes
+		character:SetAttribute("Combo", 1)
+		character:SetAttribute("Attacking", false)
+		character:SetAttribute("Knocked", false)
+		character:SetAttribute("BlockSelf", false)
+		--> If child added in character
+		character.ChildAdded:Connect(function(child)
+			--> if child is tool
+			if child:IsA("Tool") then
+				local WeaponData = Weapons:GetWeaponData(child.Name)
+				if WeaponData then
+					local Type = child:GetAttribute("Type")
+					if typeof(WeaponsTypes[Type] == "functions") then
+						WeaponsTypes[Type](player, child, WeaponData)
+					end
+				end
+			end
+		end)
+	end)
+end)
