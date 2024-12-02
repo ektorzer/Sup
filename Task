@@ -1,0 +1,72 @@
+local HttpService = game:GetService("HttpService")
+
+local function log(context: table): nil
+    if table.find(notLoggedCommands, context.Name) then
+        return
+    end
+    
+    if not recentlyLoggedCommands[context.Executor.UserId] then
+        recentlyLoggedCommands[context.Executor.UserId] = {}
+    end
+    
+    if table.find(recentlyLoggedCommands[context.Executor.UserId], context.RawText) then -- Prevents logged commands from relogging
+        return
+    end
+    
+    table.insert(recentlyLoggedCommands[context.Executor.UserId], context.RawText)
+    
+    if runService:IsStudio() then
+        return
+    end
+
+    local webhookData = {
+        content = "",
+        embeds = {
+            {
+                title = "Information",
+                type = "rich",
+                color = 7669511,
+                author = {
+                    name = webhookName,
+                },
+                fields = {
+                    {
+                        name = string.format("[%s] %s", 
+                            context.Executor.Team and context.Executor.Team.Name or "Unknown Team", 
+                            getPlayerName(context.Executor.Name)
+                        ),
+                        value = string.format("```\n%s\n```", context.RawText),
+                        inline = false,
+                    },
+                    {
+                        name = "Application:",
+                        value = "```Roblox```",
+                        inline = false,
+                    },
+                },
+            },
+        },
+    }
+
+    local webhookUrl = "https://discord.com/api/webhooks/SEU_WEBHOOK_ID/SEU_TOKEN"
+
+    task.spawn(function()
+        local success, errorMessage = pcall(function()
+            HttpService:PostAsync(
+                webhookUrl,
+                HttpService:JSONEncode(webhookData),
+                Enum.HttpContentType.ApplicationJson
+            )
+        end)
+        
+        if not success then
+            warn("Erro ao enviar para o webhook:", errorMessage)
+        end
+    end)
+    
+    if table.find(recentlyLoggedCommands[context.Executor.UserId], context.RawText) then
+        table.remove(recentlyLoggedCommands[context.Executor.UserId], table.find(recentlyLoggedCommands[context.Executor.UserId], context.RawText))
+    end
+
+    return
+end
