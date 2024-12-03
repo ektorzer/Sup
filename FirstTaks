@@ -1,0 +1,35 @@
+# Python
+from flask import Flask, request, jsonify
+import json
+
+app = Flask(name)
+
+@app.route('/yourDirect', methods=['POST'])
+def ReceiveRequests():
+    data = request.json
+    print("Data received successfull")
+    print(data)
+    return jsonify({"message": "data received sucessfull!"}), 200
+
+if name == "_main" :
+    app.run(port=5000)
+
+--> Roblox Script 
+local HttpService = game:GetService("HttpService")
+local Url = "http://yourDirect/receive-request"
+
+local Data = {
+    PlayerName = "Gustavo",
+    Score = 100
+}
+
+local JsonData = HttpService:JSONEncode(Data)
+local Sucess, Response = pcall(function()
+    return HttpService:PostAsync(Url, JsonData, Enum.HttpContentType.ApplicationJson)
+end)
+
+if Sucess then
+    print("Resposta do servidor" .. Response)
+else
+    warn("Erro ao enviar dados" .. Response)
+end
